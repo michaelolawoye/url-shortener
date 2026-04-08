@@ -19,15 +19,17 @@ func main() {
 		if err != nil {
 			fmt.Fprintln(w, "URL not found")
 		}
+		// DEBUG ----------
 		fmt.Fprintln(w, "Short path: " + short_path)
 		fmt.Fprintln(w, "Original URL: " + original_url)
+		// DEBUG ----------
 		if err == nil{
 			http.Redirect(w, r, original_url, http.StatusFound)
 		}
 
 	})
 
-	mux.HandleFunc("POST /", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /", func(w http.ResponseWriter, r *http.Request) { //   request body contains new url to be added to database
 		reader := r.Body
 		message := make([]byte, POST_LEN)
 		reader.Read(message)
@@ -41,7 +43,24 @@ func main() {
 
 		url_bytes := []byte(short_url)
 		w.Write(url_bytes)
-		fmt.Fprintln(w, short_url)
+		// DEBUG ----------
+		fmt.Fprintln(w, "Short URL: " + short_url)
+		fmt.Fprintln(w, "Current database:")
+		key_entries, err := db.client.Keys(db.ctx, "*").Result()
+		if err != nil {
+			fmt.Fprintln(w, "Couldn't print database entries")
+			panic(err)
+		}
+		for e := range key_entries {
+			res, err := db.client.Get(db.ctx,key_entries[e]).Result()	
+			if err != nil {
+				fmt.Fprintf(w, "Couldn't get value from key: %s", key_entries[e])
+				panic(err)
+			}
+			fmt.Fprintf(w, "%s: %s\n", key_entries[e], res)
+
+		}
+		// DEBUG ----------
 
 	})
 

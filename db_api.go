@@ -22,7 +22,7 @@ func createDB(addr string, password  string, db int, protocol int) DBStruct {
 	return database
 }
 
-func (db DBStruct) addURL(url string) (string, error) {
+func (db DBStruct) addURL(url string) (string, error) { // adds url to database as a value, with key being the generated short url
 	short_url, err := db.generateShortURL(url)
 	if err != nil {
 		return "", err
