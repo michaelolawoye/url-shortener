@@ -7,6 +7,7 @@ import (
 
 type DBStruct struct {
 	client *redis.Client;
+	reverse_client *redis.Client;
 	ctx context.Context;
 }
 
@@ -17,7 +18,14 @@ func createDB(addr string, password  string, db int, protocol int) DBStruct {
 			Password: password,
 			DB: db,
 			Protocol: protocol,
-		}), context.Background()}
+		}),
+		redis.NewClient(&redis.Options{
+			Addr: addr,
+			Password: password,
+			DB: db+1,
+			Protocol: protocol,
+		}),
+		context.Background()}
 
 	return database
 }
@@ -36,9 +44,18 @@ func (db DBStruct) addURL(url string) (string, error) { // adds url to database 
 	return short_url, nil
 }
 
+func (db DBStruct) removeURL(short_url string, reverse bool) (string, error) {
+
+	return db.deleteEntry(short_url, reverse)
+}
+
 func (db DBStruct) setEntry(key string, value string) error {
 
 	err := db.client.Set(db.ctx, key, value, 0).Err()
+	if err != nil {
+		return err
+	}
+	err = db.reverse_client.Set(db.ctx, value, key, 0).Err()
 	if err != nil {
 		return err
 	}
@@ -46,18 +63,47 @@ func (db DBStruct) setEntry(key string, value string) error {
 	return nil
 }
 
-func (db DBStruct) getValue(key string) (string, error) {
+func (db DBStruct) deleteEntry(key string, reverse bool) (string, error) {
 
 	val, err := db.client.Get(db.ctx, key).Result()
 	if err != nil {
-		return "", err
+		return "get", err
 	}
+
+	err = db.client.Del(db.ctx, key).Err()
+	if err != nil {
+		return "del", err
+	}
+	err = db.reverse_client.Del(db.ctx, val).Err()
+	if err != nil {
+		return "del", err
+	}
+
+	return val, nil
+}
+
+func (db DBStruct) getValue(key string, reverse bool) (string, error) {
+
+	var val string
+	var err error
+	if reverse { // retrieve from the reverse db
+		val, err = db.reverse_client.Get(db.ctx, key).Result()
+		if err != nil {
+			return "", err
+		}
+	} else { // retrieve from the normal db
+		val, err = db.client.Get(db.ctx, key).Result()
+		if err != nil {
+			return "", err
+		}
+}
 	return val, nil
 
 }
 
 func (db DBStruct) closeDB() {
 	defer db.client.Close()
+	defer db.reverse_client.Close()
 }
 
 func (db DBStruct) generateShortURL(long_url string) (string, error) {
