@@ -8,6 +8,7 @@ import (
 
 const POST_LEN int = 10
 
+// json format structs
 type CreateURLRequest struct {
 	Url string `json:"url"`
 }
@@ -16,8 +17,17 @@ type CreateURLResponse struct {
 	Desc string `json:"desc"`
 	Url string `json:"url"`
 }
-type deleteKeyStruct struct {
+type deleteKeyRequest struct {
 	Url string
+	Short bool `json:"short"`
+}
+type deleteKeyResponse struct {
+	Status bool `json:"status"`
+	Desc string `json:"desc"`
+}
+type deleteAllKeysResponse struct {
+	Status bool `json:"status"`
+	Desc string `json:"desc"`
 }
 
 func main() {
@@ -69,8 +79,15 @@ func (db *DBStruct) postRoot(w http.ResponseWriter, r *http.Request) {
 		var respdata CreateURLResponse
 		var reqdata CreateURLRequest
 
-		if err := json.NewDecoder(r.Body).Decode(&reqdata); err != nil { 
-			fmt.Fprintf(w, "Error occurred while decoding json request\nError: %s\n", err)
+		req_decoder := json.NewDecoder(r.Body)
+		resp_encoder := json.NewEncoder(w)
+
+		if err := req_decoder.Decode(&reqdata); err != nil {
+			s := fmt.Sprintf("Error occurred while decoding json request\nError: %s\n", err)
+			respdata = CreateURLResponse{Status: false, Desc: s}
+			if err = resp_encoder.Encode(respdata); err != nil {
+				fmt.Printf("postRoot: Couldn't send response to client\nError: %s\n", err)
+			}
 			return 
 		}
 
@@ -80,16 +97,17 @@ func (db *DBStruct) postRoot(w http.ResponseWriter, r *http.Request) {
 		short_url, err := db.addURL(reqdata.Url)
 		if err != nil {
 			respdata = CreateURLResponse{Status:false, Desc:"Failed to add url to database", Url:""}
-			if err = json.NewEncoder(w).Encode(respdata); err != nil {
-				fmt.Printf("Server couldn't send response\nError: %s\n", err)
+			if err = resp_encoder.Encode(respdata); err != nil {
+				fmt.Printf("postRoot: Server couldn't send response\nError: %s\n", err)
 			}
 			return
 		}
 
 		respdata = CreateURLResponse{Status:true, Desc:"Successful", Url:short_url}
 
-		if err = json.NewEncoder(w).Encode(respdata); err != nil {
-			fmt.Printf("Server couldn't send response\nError: %s\n", err)
+		if err = resp_encoder.Encode(respdata); err != nil {
+			fmt.Printf("postRoot: Server couldn't send response\nError: %s\n", err)
+			return
 		}
 
 		// DEBUG ----------
@@ -113,9 +131,19 @@ func (db *DBStruct) postRoot(w http.ResponseWriter, r *http.Request) {
 
 func (db *DBStruct) deleteSingleKey(w http.ResponseWriter, r *http.Request) {
 	
-	var reqdata deleteKeyStruct
-	if err := json.NewDecoder(r.Body).Decode(&reqdata); err != nil {
-		fmt.Fprintln(w, "Data must be in correct json format")
+	w.Header().Set("Content-Type", "application/json")
+	var reqdata deleteKeyRequest
+	var respdata deleteKeyResponse
+
+	req_decoder := json.NewDecoder(r.Body)
+	resp_encoder := json.NewEncoder(w)
+
+	if err := req_decoder.Decode(&reqdata); err != nil {
+		s := fmt.Sprintf("Error occurred while decoding client request\nError: %s\n", err)
+		respdata = deleteKeyResponse{Status:false, Desc: s}
+		if err = resp_encoder.Encode(&respdata); err != nil {
+			fmt.Printf("deleteSingleKey: Couldn't send response to client\nError: %s\n", err)
+		}
 		return
 	}
 
@@ -124,35 +152,54 @@ func (db *DBStruct) deleteSingleKey(w http.ResponseWriter, r *http.Request) {
 
 	deleted_val, err := db.removeURL(reqdata.Url, false)
 	if err != nil {
-		fmt.Fprintln(w, "Couldn't remove url from database")
+		s := fmt.Sprintf("Failed to remove URL\nError: %s\n", err)
+		respdata = deleteKeyResponse{Status: false, Desc: s}
+		if err = resp_encoder.Encode(&respdata); err != nil {
+			fmt.Printf("deleteSingleKey: Couldn't send response to client\nError: %s\n", err)
+		}
 		return
 	}	
 
 	fmt.Fprintln(w, "Deleted value: " + deleted_val) // DEBUG
 
-	respdata := deleteKeyStruct{Url: deleted_val}
+	respdata = deleteKeyResponse{Status: true, Desc: "Successful"}
 
 	if err = json.NewEncoder(w).Encode(&respdata); err != nil {
-		fmt.Fprintln(w, "Server couldn't send response to delete key request")
-		return
+		fmt.Printf("deleteSingleKey: Couldn't send response to client\nError: %s\n", err)
 	}
 
 }
 
 func (db *DBStruct) deleteAllKeys(w http.ResponseWriter, r *http.Request) {
 
-		keys, err := db.client.Keys(db.ctx, "*").Result()
-		if err != nil {
-			fmt.Fprintln(w, "Couldn't get keys")
-			return
-		}
+	var respdata deleteAllKeysResponse
+	resp_encoder := json.NewEncoder(w)
 
-		for _, key := range keys {
-			_, err = db.deleteEntry(key, false)
-			if err != nil {
-				fmt.Fprintln(w, "Couldn't delete key: " + key)
+	keys, err := db.client.Keys(db.ctx, "*").Result()
+	if err != nil {
+		s := fmt.Sprintf("Couldn't get keys from database\nError: %s\n", err)
+		respdata = deleteAllKeysResponse{Status: false, Desc: s}
+		if err = resp_encoder.Encode(&respdata); err != nil {
+			fmt.Printf("deleteAllKeys: Couldn't send response to client\nError: %s\n", err)
+		}
+		return
+	}
+
+	for _, key := range keys {
+		_, err = db.deleteEntry(key, false)
+		if err != nil {
+			s := fmt.Sprintf("Couldn't delete key: %s", key)
+			respdata = deleteAllKeysResponse{Status: false, Desc: s}
+			if err = resp_encoder.Encode(&respdata); err != nil {
+				fmt.Printf("deleteAllKeys: Couldn't send response to client\nError: %s\n", err)
+				return
 			}
 		}
+	}
+	respdata = deleteAllKeysResponse{Status: true, Desc: "Finished"}
+	if err := resp_encoder.Encode(&respdata); err != nil {
+		fmt.Printf("deleteAllKeys: Couldn't send response to client\nError: %s\n", err)
+	}
 
 }
 
@@ -161,4 +208,3 @@ func checkShortURL(short_url string, db DBStruct) (string, error) {
 
 	return db.getValue(short_url, false)
 }
-
