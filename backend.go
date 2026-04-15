@@ -8,9 +8,16 @@ import (
 
 const POST_LEN int = 10
 
-type CreateURLStruct struct {
-
-	url string
+type CreateURLRequest struct {
+	Url string `json:"url"`
+}
+type CreateURLResponse struct {
+	Status bool `json:"status"`
+	Desc string `json:"desc"`
+	Url string `json:"url"`
+}
+type deleteKeyStruct struct {
+	Url string
 }
 
 func main() {
@@ -36,10 +43,7 @@ func main() {
 
 
 func (db *DBStruct) getRoot(w http.ResponseWriter, r *http.Request) {
-		short_path := r.URL.Path[1:] // gets path and removes leading slash
-
 		// DEBUG ----------
-		fmt.Fprintln(w, "Short URL: " + short_path)
 		fmt.Fprintln(w, "Current database:")
 		key_entries, err := db.client.Keys(db.ctx, "*").Result()
 		if err != nil {
@@ -54,37 +58,41 @@ func (db *DBStruct) getRoot(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "%s: %s\n", key_entries[e], res)
 
 		}
-
 		// DEBUG ----------
 
 }
 
 func (db *DBStruct) postRoot(w http.ResponseWriter, r *http.Request) {
 
-		var reqdata CreateURLStruct
-		if err := json.NewDecoder(r.Body).Decode(&reqdata); err != nil {
-			fmt.Fprintln(w, "Data must be in correct json format")
+		w.Header().Set("Content-Type", "application/json")
+
+		var respdata CreateURLResponse
+		var reqdata CreateURLRequest
+
+		if err := json.NewDecoder(r.Body).Decode(&reqdata); err != nil { 
+			fmt.Fprintf(w, "Error occurred while decoding json request\nError: %s\n", err)
 			return 
 		}
 
-		fmt.Fprintf(w, "URL: %s\n", reqdata.url) // DEBUG
+		fmt.Fprintf(w, "struct: %s.\n", reqdata) // DEBUG
 		
 		
-		short_url, err := db.addURL(reqdata.url)
+		short_url, err := db.addURL(reqdata.Url)
 		if err != nil {
-			fmt.Fprintln(w, "URL couldn't be added")
+			respdata = CreateURLResponse{Status:false, Desc:"Failed to add url to database", Url:""}
+			if err = json.NewEncoder(w).Encode(respdata); err != nil {
+				fmt.Printf("Server couldn't send response\nError: %s\n", err)
+			}
 			return
 		}
 
-		var respdata CreateURLStruct
+		respdata = CreateURLResponse{Status:true, Desc:"Successful", Url:short_url}
 
-		w.Header().Set("Content-Type", "application/json")
 		if err = json.NewEncoder(w).Encode(respdata); err != nil {
-			fmt.Fprintln(w, "Server couldn't send response")
+			fmt.Printf("Server couldn't send response\nError: %s\n", err)
 		}
 
 		// DEBUG ----------
-		fmt.Fprintln(w, "Short URL: " + short_url)
 		fmt.Fprintln(w, "Current database:")
 		key_entries, err := db.client.Keys(db.ctx, "*").Result()
 		if err != nil {
@@ -104,23 +112,30 @@ func (db *DBStruct) postRoot(w http.ResponseWriter, r *http.Request) {
 }
 
 func (db *DBStruct) deleteSingleKey(w http.ResponseWriter, r *http.Request) {
+	
+	var reqdata deleteKeyStruct
+	if err := json.NewDecoder(r.Body).Decode(&reqdata); err != nil {
+		fmt.Fprintln(w, "Data must be in correct json format")
+		return
+	}
 
-		reader := r.Body
+	fmt.Fprintf(w, "URL to be deleted: %s.\n", string(reqdata.Url)) // DEBUG
 
-		message := make([]byte, POST_LEN)
-		reader.Read(message)
 
-		fmt.Fprintf(w, "URL to be deleted: %s.\n", string(message)) // DEBUG
+	deleted_val, err := db.removeURL(reqdata.Url, false)
+	if err != nil {
+		fmt.Fprintln(w, "Couldn't remove url from database")
+		return
+	}	
 
-		msg_str := string(message)
+	fmt.Fprintln(w, "Deleted value: " + deleted_val) // DEBUG
 
-		deleted_val, err := db.removeURL(msg_str, false)
-		if err != nil {
-			fmt.Fprintln(w, "Couldn't remove url from database")
-			return
-		}	
+	respdata := deleteKeyStruct{Url: deleted_val}
 
-		fmt.Fprintln(w, "Deleted value: " + deleted_val) // DEBUG
+	if err = json.NewEncoder(w).Encode(&respdata); err != nil {
+		fmt.Fprintln(w, "Server couldn't send response to delete key request")
+		return
+	}
 
 }
 
