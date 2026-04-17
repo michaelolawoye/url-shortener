@@ -76,13 +76,13 @@ func (db DBStruct) deleteEntry(key string, reverse bool) (string, error) {
 	}
 	err = db.reverse_client.Del(db.ctx, val).Err()
 	if err != nil {
-		return "del", err
+		return "reverse-del", err
 	}
 
 	return val, nil
 }
 
-func (db DBStruct) getValue(key string, reverse bool) (string, error) {
+func (db DBStruct) getEntry(key string, reverse bool) (string, error) {
 
 	var val string
 	var err error
