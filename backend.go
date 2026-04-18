@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"encoding/json"
+	"os"
 )
 
 const POST_LEN int = 10
@@ -40,7 +41,11 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	db := createDB("localhost:6379", "", 0, 2)
+	addr := os.Getenv("REDIS_ADDR")
+	if addr == "" {
+		addr = "localhost:6379"
+	} 
+	db := createDB(addr, "", 0, 2)
 	defer db.closeDB()
 
 	mux.HandleFunc("GET /", db.getRoot) // leave just root url (/) for full database, add short url for specific original url
