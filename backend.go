@@ -41,11 +41,12 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	addr := os.Getenv("REDIS_ADDR")
+	addr := os.Getenv("REDIS_HOST")
 	if addr == "" {
-		addr = "localhost:6379"
+		addr = "localhost"
 	} 
-	db := createDB(addr, "", 0, 2)
+	fmt.Println("Address recieved: " + addr)
+	db := createDB(addr + ":6379", "", 0, 2)
 	defer db.closeDB()
 
 	mux.HandleFunc("GET /", db.getRoot) // leave just root url (/) for full database, add short url for specific original url

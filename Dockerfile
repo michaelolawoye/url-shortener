@@ -5,10 +5,15 @@ RUN apk update && apk add --no-cache git
 
 WORKDIR /app
 
-ENV REDIS_ADDR="host.docker.internal:6379"
-
-RUN git clone https://github.com/michaelolawoye/url-shortener.git .
+# RUN git clone https://github.com/michaelolawoye/url-shortener.git .
+COPY . .
 
 RUN go build
+
+
+FROM alpine
+WORKDIR /app
+COPY --from=build /app/main .
+ENV REDIS_HOST="host.docker.internal"
 
 CMD ["./main"]
