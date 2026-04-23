@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ name: url-shortener-redis-deployment 
+ labels:
+  app: url-shortener-redis
+spec:
+ replicas: 2 
+ selector:
+  matchLabels: 
+    app: url-shortener-redis
+ template:
+  metadata:
+    labels:
+      app: url-shortener-redis 
+  spec:
+    containers:
+    - name: redis
+      image: redis:latest
+      imagePullPolicy: IfNotPresent
+      ports:
+      - name: redis-port
+      - containerPort: 6379
