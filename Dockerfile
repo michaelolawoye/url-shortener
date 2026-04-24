@@ -8,12 +8,12 @@ WORKDIR /app
 # RUN git clone https://github.com/michaelolawoye/url-shortener.git .
 COPY . .
 
-RUN go build
+RUN go build ./cmd/backend
 
 
 FROM alpine
 WORKDIR /app
-COPY --from=build /app/main .
+COPY --from=build /app/backend .
 ENV REDIS_HOST="host.docker.internal"
 
 CMD ["./main"]

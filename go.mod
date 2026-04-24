@@ -1,4 +1,4 @@
-module short.com/main
+module github.com/michaelolawoye/url-shortener
 
 go 1.25.7
 

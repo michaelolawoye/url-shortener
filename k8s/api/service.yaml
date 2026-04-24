@@ -1,14 +1,15 @@
 apiVersion: v1
 kind: Service
-metadata:
+metadata: # this service's own identification
   name: url-shortener-api-service
   labels:
     app: url-shortener-api
 spec:
+  type: ClusterIP # only available through port-forward, use LoadBalancer to make it truly external
   ports:
     - port: 80 # port the service listens on
       targetPort: 8080 # port on each pod that the service redirects to
       protocol: TCP 
   selector:
     matchLabels:
-      app: url-shortener-api
+      app: url-shortener-api # label of pods that traffic is redirected to
