@@ -5,8 +5,10 @@ RUN apk update && apk add --no-cache git
 
 WORKDIR /app
 
-# RUN git clone https://github.com/michaelolawoye/url-shortener.git .
-COPY . .
+RUN git clone https://github.com/michaelolawoye/url-shortener.git .
+
+
+# COPY . .
 
 RUN go build ./cmd/backend
 
@@ -16,4 +18,4 @@ WORKDIR /app
 COPY --from=build /app/backend .
 ENV REDIS_HOST="url-shortener-redis-service"
 
-CMD ["./main"]
+CMD ["ls"]
