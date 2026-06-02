@@ -14,6 +14,6 @@ RUN go build ./cmd/backend
 FROM alpine
 WORKDIR /app
 COPY --from=build /app/backend .
-ENV REDIS_HOST="host.docker.internal"
+ENV REDIS_HOST="url-shortener-redis-service"
 
 CMD ["./main"]

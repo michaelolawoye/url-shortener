@@ -6,10 +6,9 @@ metadata:
     app: url-shortener-redis
 spec:
   type: ClusterIP
+  selector:
+    app: url-shortener-redis
   ports:
     - port: 80
       targetPort: 6379
       protocol: TCP 
-  selector:
-    matchLabels:
-      app: url-shortener-redis
